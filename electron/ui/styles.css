@@ -200,6 +200,134 @@ h1 {
   gap: 14px;
 }
 
+.agent-panel {
+  margin-top: 14px;
+  padding: 14px;
+}
+
+.agent-panel h2 {
+  margin: 0 0 8px;
+}
+
+#micro-task-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  line-height: 1.6;
+}
+
+.tabs {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.tab-btn {
+  background: transparent;
+  border: 0;
+  padding: 10px 14px;
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.tab-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+.settings-panel,
+.logs-panel {
+  margin-top: 14px;
+  padding: 16px;
+}
+
+.setting-item {
+  margin: 14px 0;
+  padding: 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.setting-item label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.setting-item input[type="number"],
+.setting-item input[type="range"] {
+  width: min(260px, 100%);
+}
+
+.setting-item small {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+}
+
+#confidence-display {
+  margin-left: 8px;
+  font-weight: 700;
+}
+
+.log-controls {
+  margin-bottom: 12px;
+  display: flex;
+  gap: 8px;
+}
+
+.btn-sm {
+  padding: 8px 12px;
+  font-size: 0.82rem;
+}
+
+.event-log-container {
+  max-height: 460px;
+  overflow-y: auto;
+  display: grid;
+  gap: 10px;
+}
+
+.event-log-entry {
+  border-radius: 10px;
+  border: 1px solid var(--panel-border);
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.event-timestamp {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-bottom: 4px;
+}
+
+.event-trigger,
+.event-action {
+  font-weight: 700;
+}
+
+.event-reason {
+  margin-top: 4px;
+  color: var(--muted);
+}
+
+.no-logs {
+  color: var(--muted);
+  text-align: center;
+  padding: 18px;
+}
+
 .camera-panel {
   grid-area: camera;
   padding: 14px;

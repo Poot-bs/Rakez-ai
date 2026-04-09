@@ -47,30 +47,86 @@
       </div>
     </section>
 
-    <main class="main-grid">
-      <section class="camera-panel glass">
-        <div class="panel-title">Live Camera Feed</div>
-        <div class="video-frame">
-          <video id="webcam" autoplay playsinline></video>
-          <canvas id="canvas_output"></canvas>
+    <main>
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="overview">Overview</button>
+        <button class="tab-btn" data-tab="settings">Settings</button>
+        <button class="tab-btn" data-tab="logs">Event Log</button>
+      </div>
+
+      <div id="overview" class="tab-content active">
+        <div class="main-grid">
+          <section class="camera-panel glass">
+            <div class="panel-title">Live Camera Feed</div>
+            <div class="video-frame">
+              <video id="webcam" autoplay playsinline></video>
+              <canvas id="canvas_output"></canvas>
+            </div>
+          </section>
+
+          <section class="focus-score-card glass">
+            <div class="panel-title">Focus Score</div>
+            <div id="focus-ring" class="focus-ring" style="--score: 0;" data-label="0%"></div>
+          </section>
+
+          <section class="alerts-card glass">
+            <div class="panel-title">Real-time Alerts</div>
+            <div id="latest-alert" class="alert-text">No alerts yet.</div>
+            <div class="model-source" id="model-source">Model: distraction_detection (HDF5 weights converted to ONNX)</div>
+          </section>
+
+          <section class="log-card glass">
+            <div class="panel-title">Recent Distraction Log</div>
+            <div id="log-list" class="log-list"></div>
+          </section>
         </div>
-      </section>
 
-      <section class="focus-score-card glass">
-        <div class="panel-title">Focus Score</div>
-        <div id="focus-ring" class="focus-ring" style="--score: 0;" data-label="0%"></div>
-      </section>
+        <section class="agent-panel glass">
+          <h2>Agentic Brain</h2>
+          <p id="agent-message">No intervention yet.</p>
+          <p id="context-mode">Context: unknown</p>
+          <p id="lock-status">Distraction lock: inactive</p>
+          <ol id="micro-task-list"></ol>
+        </section>
+      </div>
 
-      <section class="alerts-card glass">
-        <div class="panel-title">Real-time Alerts</div>
-        <div id="latest-alert" class="alert-text">No alerts yet.</div>
-        <div class="model-source" id="model-source">Model: distraction_detection (HDF5 weights converted to ONNX)</div>
-      </section>
+      <div id="settings" class="tab-content">
+        <section class="settings-panel glass">
+          <h2>Intervention Settings</h2>
 
-      <section class="log-card glass">
-        <div class="panel-title">Recent Distraction Log</div>
-        <div id="log-list" class="log-list"></div>
-      </section>
+          <div class="setting-item">
+            <label for="switch-threshold">Tab Switch Threshold (in 5 min):</label>
+            <input type="number" id="switch-threshold" min="3" max="20" value="8">
+            <small>Triggers focus sprint when exceeded.</small>
+          </div>
+
+          <div class="setting-item">
+            <label for="lock-duration">Default Lock Duration (minutes):</label>
+            <input type="number" id="lock-duration" min="1" max="10" value="2">
+            <small>Default lock time for autonomous lock decisions.</small>
+          </div>
+
+          <div class="setting-item">
+            <label for="confidence-threshold">Distraction Confidence Threshold:</label>
+            <input type="range" id="confidence-threshold" min="0.5" max="1" step="0.05" value="0.75">
+            <span id="confidence-display">0.75</span>
+            <small>Higher = stricter distraction detection.</small>
+          </div>
+
+          <button id="save-settings" class="btn btn-secondary">Save Settings</button>
+        </section>
+      </div>
+
+      <div id="logs" class="tab-content">
+        <section class="logs-panel glass">
+          <h2>Event Log</h2>
+          <div class="log-controls">
+            <button id="refresh-logs" class="btn btn-secondary btn-sm">Refresh</button>
+            <button id="clear-logs" class="btn btn-secondary btn-sm">Clear</button>
+          </div>
+          <div id="event-log" class="event-log-container"></div>
+        </section>
+      </div>
     </main>
   </div>
 

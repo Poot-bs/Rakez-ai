@@ -16,6 +16,38 @@ const logListEl = document.getElementById('log-list');
 const calibrationStatusEl = document.getElementById('calibration-status');
 const calibrationProgressEl = document.getElementById('calibration-progress');
 let lastCalibrationSignature = '';
+const agentMessageEl = document.getElementById('agent-message');
+const contextModeEl = document.getElementById('context-mode');
+const lockStatusEl = document.getElementById('lock-status');
+const microTaskListEl = document.getElementById('micro-task-list');
+
+function updateFocusButton(active) {
+  toggleBtn.innerText = active ? 'Stop Focus Session' : 'Start Focus Session';
+  toggleBtn.className = active ? 'btn active' : 'btn';
+}
+
+function formatLock(lockUntil) {
+  const lockTs = Number(lockUntil);
+  if (!lockTs || Number.isNaN(lockTs) || lockTs <= Date.now()) {
+    return 'Distraction lock: inactive';
+  }
+
+  const remainingMs = Math.max(0, lockTs - Date.now());
+  const remainingMin = Math.ceil(remainingMs / 60000);
+  return `Distraction lock: active (${remainingMin} min remaining)`;
+}
+
+function renderMicroTasks(steps) {
+  if (!microTaskListEl) return;
+  microTaskListEl.innerHTML = '';
+  if (!Array.isArray(steps) || !steps.length) return;
+
+  for (const step of steps) {
+    const li = document.createElement('li');
+    li.innerText = step;
+    microTaskListEl.appendChild(li);
+  }
+}
 
 function formatDuration(seconds) {
   const safe = Math.max(0, Number(seconds) || 0);
@@ -66,6 +98,12 @@ window.focusGuardian.on('stats-data', (data) => {
   distractionEl.innerText = data.distractions;
   focusTimeEl.innerText = formatDuration(data.focusSeconds);
   shieldTimeEl.innerText = formatDuration(data.shieldRemainingSec);
+  isFocusMode = Boolean(data.focusMode);
+  updateFocusButton(isFocusMode);
+
+  if (lockStatusEl) {
+    lockStatusEl.innerText = formatLock(data.lockUntil);
+  }
 
   if (buyShieldBtn) {
     buyShieldBtn.innerText = `Buy ${data.shieldDurationMinutes}m Shield (${data.shieldCost} coins)`;
@@ -79,8 +117,7 @@ window.focusGuardian.on('distraction-log-update', (logEntries) => {
 
 toggleBtn.addEventListener('click', () => {
   isFocusMode = !isFocusMode;
-  toggleBtn.innerText = isFocusMode ? 'Stop Focus Session' : 'Start Focus Session';
-  toggleBtn.className = isFocusMode ? 'btn active' : 'btn';
+  updateFocusButton(isFocusMode);
   
   window.focusGuardian.send('set-focus-mode', isFocusMode);
   
@@ -122,6 +159,71 @@ buyShieldBtn.addEventListener('click', async () => {
 
 window.focusGuardian.on('active-app-update', (appName) => {
   activeAppEl.innerText = `Current App: ${appName}`;
+});
+
+window.focusGuardian.on('agent-decision', (payload) => {
+  const contextMode = payload.context?.mode || 'unknown';
+  const confidence = payload.context?.confidence || 0;
+  const message = payload.intervention?.message || 'No intervention required.';
+  const reason = payload.intervention?.reason || payload.context?.reason || 'No reason provided.';
+
+  isFocusMode = Boolean(payload.focusMode);
+  updateFocusButton(isFocusMode);
+
+  if (agentMessageEl) {
+    agentMessageEl.innerText = `${message} (${reason})`;
+  }
+
+  if (contextModeEl) {
+    contextModeEl.innerText = `Context: ${contextMode} (confidence ${confidence.toFixed(2)})`;
+  }
+
+  if (lockStatusEl) {
+    lockStatusEl.innerText = formatLock(payload.lockUntil);
+  }
+
+  renderMicroTasks(payload.microTasks || []);
+});
+
+window.focusGuardian.on('settings-data', (settings) => {
+  const switchEl = document.getElementById('switch-threshold');
+  const lockEl = document.getElementById('lock-duration');
+  const confidenceEl = document.getElementById('confidence-threshold');
+  const confidenceDisplay = document.getElementById('confidence-display');
+
+  if (switchEl) switchEl.value = settings.switchCountThreshold || 8;
+  if (lockEl) lockEl.value = settings.defaultLockMinutes || 2;
+  if (confidenceEl) confidenceEl.value = settings.confidenceThreshold || 0.75;
+  if (confidenceDisplay) confidenceDisplay.innerText = (settings.confidenceThreshold || 0.75).toFixed(2);
+});
+
+window.focusGuardian.on('event-log-data', (logs) => {
+  const logContainer = document.getElementById('event-log');
+  if (!logContainer) return;
+
+  if (!logs || logs.length === 0) {
+    logContainer.innerHTML = '<div class="no-logs">No events logged yet.</div>';
+    return;
+  }
+
+  logContainer.innerHTML = logs.map(formatEventEntry).join('');
+});
+
+window.focusGuardian.on('event-logged', (entry) => {
+  const logContainer = document.getElementById('event-log');
+  if (!logContainer) return;
+
+  if (logContainer.innerHTML.includes('no-logs')) {
+    logContainer.innerHTML = '';
+  }
+
+  const newEntry = document.createElement('div');
+  newEntry.innerHTML = formatEventEntry(entry);
+  logContainer.insertBefore(newEntry.firstElementChild, logContainer.firstChild);
+
+  while (logContainer.children.length > 50) {
+    logContainer.removeChild(logContainer.lastChild);
+  }
 });
 
 window.focusGuardian.on('extension-distraction', (site) => {
@@ -204,6 +306,91 @@ window.focusGuardian.invoke('get-calibration').then((profile) => {
     calibrationProgressEl.style.width = '100%';
   }
 });
+
+function loadSettings() {
+  window.focusGuardian.send('get-settings');
+}
+
+function saveSettings() {
+  const switchThreshold = parseInt(document.getElementById('switch-threshold').value, 10);
+  const lockDuration = parseInt(document.getElementById('lock-duration').value, 10);
+  const confidenceThreshold = parseFloat(document.getElementById('confidence-threshold').value);
+
+  window.focusGuardian.send('update-setting', ['switchCountThreshold', switchThreshold]);
+  window.focusGuardian.send('update-setting', ['defaultLockMinutes', lockDuration]);
+  window.focusGuardian.send('update-setting', ['confidenceThreshold', confidenceThreshold]);
+
+  latestAlertEl.innerText = 'Settings saved.';
+}
+
+function loadEventLog() {
+  window.focusGuardian.send('get-event-log');
+}
+
+function formatEventEntry(entry) {
+  const time = new Date(entry.timestamp).toLocaleTimeString();
+  const trigger = entry.trigger || 'unknown';
+  const action = entry.intervention?.action || 'none';
+  const reason = entry.intervention?.reason || entry.context?.reason || '';
+
+  return `
+    <div class="event-log-entry">
+      <div class="event-timestamp">${time}</div>
+      <div><span class="event-trigger">Trigger:</span> ${trigger}</div>
+      <div><span class="event-action">Action:</span> ${action}</div>
+      ${reason ? `<div class="event-reason">Reason: ${reason}</div>` : ''}
+    </div>
+  `;
+}
+
+document.querySelectorAll('.tab-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const tabName = btn.getAttribute('data-tab');
+
+    document.querySelectorAll('.tab-content').forEach((tab) => tab.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
+
+    const tabEl = document.getElementById(tabName);
+    if (tabEl) {
+      tabEl.classList.add('active');
+    }
+
+    btn.classList.add('active');
+
+    if (tabName === 'logs') {
+      loadEventLog();
+    }
+  });
+});
+
+const confidenceEl = document.getElementById('confidence-threshold');
+if (confidenceEl) {
+  confidenceEl.addEventListener('input', (e) => {
+    const display = document.getElementById('confidence-display');
+    if (display) {
+      display.innerText = parseFloat(e.target.value).toFixed(2);
+    }
+  });
+}
+
+const saveSettingsBtn = document.getElementById('save-settings');
+if (saveSettingsBtn) {
+  saveSettingsBtn.addEventListener('click', saveSettings);
+}
+
+const refreshLogsBtn = document.getElementById('refresh-logs');
+if (refreshLogsBtn) {
+  refreshLogsBtn.addEventListener('click', loadEventLog);
+}
+
+const clearLogsBtn = document.getElementById('clear-logs');
+if (clearLogsBtn) {
+  clearLogsBtn.addEventListener('click', () => {
+    window.focusGuardian.send('clear-event-log');
+  });
+}
+
+loadSettings();
 
 // Make accessible to distractionDetector.js
 window.triggerAlert = triggerAlert;
