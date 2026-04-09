@@ -1,6 +1,6 @@
-# Focus Guardian 🛡️
+# Rakez Ai 🛡️
 
-Focus Guardian is an AI-powered desktop application and Chrome extension that helps you stay focused by tracking attention and blocking distracting sites.
+Rakez Ai is an AI-powered desktop application and Chrome extension that helps you stay focused by tracking attention and blocking distracting sites.
 
 ## Features
 - **Webcam Monitoring**: Uses MediaPipe to track if you are looking at the screen. Warns you if distracted.
