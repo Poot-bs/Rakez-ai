@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "Focus Guardian Blocks",
+  "version": "1.0",
+  "description": "Blocks distracting websites and warns Focus Guardian app.",
+  "permissions": ["tabs", "storage"],
+  "host_permissions": ["*://*.youtube.com/*", "*://*.facebook.com/*", "*://*.twitter.com/*", "*://*.reddit.com/*", "*://*.tiktok.com/*", "*://*.instagram.com/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.youtube.com/*", "*://*.facebook.com/*", "*://*.twitter.com/*", "*://*.reddit.com/*", "*://*.tiktok.com/*", "*://*.instagram.com/*"],
+      "js": ["content.js"]
+    }
+  ]
+}

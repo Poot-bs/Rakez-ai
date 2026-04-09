@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Focus Guardian</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Focus Guardian 🛡️</h1>
+      <div class="stats">
+        <p>🪙 Coins: <span id="coin-count">0</span></p>
+        <p>⚠️ Distractions: <span id="distraction-count">0</span></p>
+      </div>
+    </header>
+    
+    <main>
+      <div class="video-container">
+        <video id="webcam" autoplay playsinline></video>
+        <canvas id="canvas_output"></canvas>
+      </div>
+      
+      <div class="controls">
+        <button id="toggle-focus" class="btn">Focus Mode: OFF</button>
+        <p id="status-text">Ready to focus.</p>
+        <p id="active-app">Current App: None</p>
+      </div>
+    </main>
+  </div>
+
+  <audio id="alert-sound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
+
+  <!-- Load MediaPipe Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+  
+  <script src="index.js"></script>
+  <script src="../../ai/distractionDetector.js"></script>
+</body>
+</html>
