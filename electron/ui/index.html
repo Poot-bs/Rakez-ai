@@ -16,15 +16,69 @@
     </header>
     
     <main>
-      <div class="video-container">
-        <video id="webcam" autoplay playsinline></video>
-        <canvas id="canvas_output"></canvas>
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="overview">Overview</button>
+        <button class="tab-btn" data-tab="settings">Settings</button>
+        <button class="tab-btn" data-tab="logs">Event Log</button>
       </div>
-      
-      <div class="controls">
-        <button id="toggle-focus" class="btn">Focus Mode: OFF</button>
-        <p id="status-text">Ready to focus.</p>
-        <p id="active-app">Current App: None</p>
+
+      <div id="overview" class="tab-content active">
+        <div class="video-container">
+          <video id="webcam" autoplay playsinline></video>
+          <canvas id="canvas_output"></canvas>
+        </div>
+        
+        <div class="controls">
+          <button id="toggle-focus" class="btn">Focus Mode: OFF</button>
+          <p id="status-text">Ready to focus.</p>
+          <p id="active-app">Current App: None</p>
+        </div>
+
+        <section class="agent-panel">
+          <h2>Agentic Brain</h2>
+          <p id="agent-message">No intervention yet.</p>
+          <p id="context-mode">Context: unknown</p>
+          <p id="lock-status">Distraction lock: inactive</p>
+          <ol id="micro-task-list"></ol>
+        </section>
+      </div>
+
+      <div id="settings" class="tab-content">
+        <section class="settings-panel">
+          <h2>Intervention Settings</h2>
+          
+          <div class="setting-item">
+            <label for="switch-threshold">Tab Switch Threshold (in 5 min):</label>
+            <input type="number" id="switch-threshold" min="3" max="20" value="8">
+            <small>Triggers focus sprint when exceeded</small>
+          </div>
+
+          <div class="setting-item">
+            <label for="lock-duration">Default Lock Duration (minutes):</label>
+            <input type="number" id="lock-duration" min="1" max="10" value="2">
+            <small>Default lock time for autonomously triggered locks</small>
+          </div>
+
+          <div class="setting-item">
+            <label for="confidence-threshold">Distraction Confidence Threshold:</label>
+            <input type="range" id="confidence-threshold" min="0.5" max="1" step="0.05" value="0.75">
+            <span id="confidence-display">0.75</span>
+            <small>Higher = stricter distraction detection</small>
+          </div>
+
+          <button id="save-settings" class="btn btn-secondary">Save Settings</button>
+        </section>
+      </div>
+
+      <div id="logs" class="tab-content">
+        <section class="logs-panel">
+          <h2>Event Log</h2>
+          <div class="log-controls">
+            <button id="refresh-logs" class="btn btn-secondary btn-sm">Refresh</button>
+            <button id="clear-logs" class="btn btn-secondary btn-sm">Clear</button>
+          </div>
+          <div id="event-log" class="event-log-container"></div>
+        </section>
       </div>
     </main>
   </div>
