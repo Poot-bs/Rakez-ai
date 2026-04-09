@@ -1,8 +1,8 @@
-const connectApp = (site) => {
+const connectApp = (payload) => {
   try {
     const ws = new WebSocket("ws://localhost:8080");
     ws.onopen = () => {
-      ws.send(JSON.stringify({ type: "distraction", site: site }));
+      ws.send(JSON.stringify(payload));
       ws.close();
     };
   } catch (e) {
@@ -12,6 +12,18 @@ const connectApp = (site) => {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "hit_distraction") {
-    connectApp(message.site);
+    connectApp({
+      type: "distraction",
+      site: message.site,
+      title: message.title || ''
+    });
+  }
+
+  if (message.type === "context_signal") {
+    connectApp({
+      type: "context",
+      site: message.site,
+      title: message.title || ''
+    });
   }
 });

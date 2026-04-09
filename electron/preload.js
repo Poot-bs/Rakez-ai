@@ -4,7 +4,12 @@ const validReceiveChannels = [
     'stats-data',
     'distraction-log-update',
     'active-app-update',
-    'extension-distraction'
+    'extension-distraction',
+    'agent-decision',
+    'settings-data',
+    'settings-updated',
+    'event-log-data',
+    'event-logged'
 ];
 
 contextBridge.exposeInMainWorld('focusGuardian', {
@@ -14,7 +19,11 @@ contextBridge.exposeInMainWorld('focusGuardian', {
             'get-stats',
             'request-distraction-log',
             'cv-distraction-event',
-            'add-distraction'
+            'add-distraction',
+            'get-settings',
+            'update-setting',
+            'get-event-log',
+            'clear-event-log'
         ];
 
         if (!allowed.includes(channel)) return;

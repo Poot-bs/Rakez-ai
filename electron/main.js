@@ -6,12 +6,24 @@ const activeWin = require('active-win');
 const WebSocket = require('ws');
 const express = require('express');
 const cors = require('cors');
+const { runAgenticGraph } = require('../ai/multiAgentGraph');
 
 const store = new Store();
 let mainWindow;
 let isFocusModeActive = false;
 let focusRewardInterval = null;
 let focusRewardAccumulator = 0;
+let lockUntil = 0;
+let lastWindowTitle = '';
+let latestSignal = { app: 'unknown', title: '', site: '' };
+let analysisInFlight = false;
+let pendingAnalysis = false;
+
+const switchEvents = [];
+const distractionEvents = [];
+
+const maxLogEntries = 200;
+let eventLog = [];
 
 if (!store.has('distractionLog')) store.set('distractionLog', []);
 
@@ -24,8 +36,42 @@ if (!store.has('calibrationProfile')) {
   store.set('calibrationProfile', null);
 }
 
+function initializeSettings() {
+  const defaults = {
+    switchCountThreshold: 8,
+    defaultLockMinutes: 2,
+    confidenceThreshold: 0.75
+  };
+
+  if (!store.has('settings')) {
+    store.set('settings', defaults);
+  }
+
+  return store.get('settings');
+}
+
+function getSettings() {
+  return initializeSettings();
+}
+
+function updateSetting(key, value) {
+  const settings = getSettings();
+  settings[key] = value;
+  store.set('settings', settings);
+  notifyRenderer('settings-updated', settings);
+  return settings;
+}
+
 const SHIELD_COST_COINS = 20;
 const SHIELD_DURATION_MINUTES = 10;
+
+function isLockActive() {
+  return Date.now() < lockUntil;
+}
+
+function isEffectiveFocusMode() {
+  return isFocusModeActive || isLockActive();
+}
 
 function resolveModelPath() {
   const devPath = path.join(app.getAppPath(), 'assets', 'models', 'distraction_model.onnx');
@@ -51,6 +97,48 @@ function isShieldActive() {
   return getShieldRemainingSec() > 0;
 }
 
+function notifyRenderer(channel, payload) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send(channel, payload);
+}
+
+function logEvent(data) {
+  const entry = {
+    timestamp: Date.now(),
+    ...data
+  };
+
+  eventLog.unshift(entry);
+  if (eventLog.length > maxLogEntries) {
+    eventLog.pop();
+  }
+
+  notifyRenderer('event-logged', entry);
+}
+
+function pruneEvents(events, windowMs) {
+  const threshold = Date.now() - windowMs;
+  while (events.length && events[0] < threshold) {
+    events.shift();
+  }
+}
+
+function getMetrics() {
+  pruneEvents(switchEvents, 10 * 60 * 1000);
+  pruneEvents(distractionEvents, 10 * 60 * 1000);
+
+  const fiveMinThreshold = Date.now() - 5 * 60 * 1000;
+  const tabSwitches5m = switchEvents.filter((ts) => ts >= fiveMinThreshold).length;
+  const recentDistractions = distractionEvents.length;
+
+  return {
+    tabSwitches5m,
+    recentDistractions,
+    stuckSignals10m: tabSwitches5m + recentDistractions,
+    focusActive: isEffectiveFocusMode()
+  };
+}
+
 function getDistractionLog(limit = 20) {
   return store.get('distractionLog', []).slice(0, limit);
 }
@@ -66,6 +154,9 @@ function publishStats(targetEvent = null) {
     coins: store.get('coins'),
     distractions: store.get('distractions'),
     focusSeconds: store.get('focusSeconds'),
+    focusMode: isEffectiveFocusMode(),
+    lockUntil,
+    lockActive: isLockActive(),
     shieldRemainingSec: getShieldRemainingSec(),
     shieldCost: SHIELD_COST_COINS,
     shieldDurationMinutes: SHIELD_DURATION_MINUTES
@@ -97,6 +188,7 @@ function applyPenalty(source, reason, score = null, targetEvent = null) {
 
   const coins = store.get('coins');
   const distractions = store.get('distractions');
+  distractionEvents.push(Date.now());
 
   store.set('coins', Math.max(0, coins - 5));
   store.set('distractions', distractions + 1);
@@ -121,7 +213,7 @@ function startFocusRewardLoop() {
   if (focusRewardInterval) return;
 
   focusRewardInterval = setInterval(() => {
-    if (!isFocusModeActive) return;
+    if (!isEffectiveFocusMode()) return;
 
     store.set('focusSeconds', store.get('focusSeconds') + 1);
     focusRewardAccumulator += 1;
@@ -149,11 +241,71 @@ function stopFocusRewardLoop() {
   focusRewardInterval = null;
 }
 
+function applyInterventionDecision(result) {
+  const intervention = result.intervention || {};
+  const minutes = Number(intervention.lockMinutes) || 0;
+
+  if (intervention.forceFocus) {
+    isFocusModeActive = true;
+  }
+
+  if (intervention.lockDistractions && minutes > 0) {
+    lockUntil = Math.max(lockUntil, Date.now() + minutes * 60 * 1000);
+  }
+
+  notifyRenderer('agent-decision', {
+    context: result.context || {},
+    intervention,
+    microTasks: result.microTasks || [],
+    lockActive: isLockActive(),
+    lockUntil,
+    focusMode: isEffectiveFocusMode()
+  });
+}
+
+async function runInterventionCycle(reason) {
+  if (analysisInFlight) {
+    pendingAnalysis = true;
+    return;
+  }
+
+  analysisInFlight = true;
+
+  try {
+    const result = await runAgenticGraph({
+      latestSignal,
+      metrics: getMetrics(),
+      settings: getSettings()
+    });
+
+    if (reason === 'distraction' || (result.intervention && result.intervention.action !== 'none')) {
+      applyInterventionDecision(result);
+      logEvent({
+        trigger: reason,
+        context: result.context,
+        intervention: result.intervention
+      });
+    }
+  } catch (error) {
+    console.error('Agentic cycle failed:', error);
+  } finally {
+    analysisInFlight = false;
+    if (pendingAnalysis) {
+      pendingAnalysis = false;
+      runInterventionCycle('queued');
+    }
+  }
+}
+
 // Setup Express API for Extension
 const api = express();
 api.use(cors());
 api.get('/status', (req, res) => {
-  res.json({ focusMode: isFocusModeActive });
+  res.json({
+    focusMode: isEffectiveFocusMode(),
+    lockActive: isLockActive(),
+    lockUntil
+  });
 });
 api.listen(8081, () => {
   console.log('Focus Guardian API listening on port 8081');
@@ -192,17 +344,37 @@ app.whenReady().then(() => {
     try {
       const activeApp = await activeWin();
       if (activeApp) {
-        mainWindow.webContents.send('active-app-update', activeApp.title);
+        const title = activeApp.title || 'Unknown window';
+        const appName = activeApp.owner?.name || 'Unknown app';
+
+        latestSignal = {
+          app: appName,
+          title,
+          site: activeApp.url || ''
+        };
+
+        if (title !== lastWindowTitle) {
+          lastWindowTitle = title;
+          switchEvents.push(Date.now());
+        }
+
+        notifyRenderer('active-app-update', `${appName} - ${title}`);
+        runInterventionCycle('active-window');
       }
     } catch (err) {
       console.error('Error getting active window:', err);
     }
-  }, 20000);
+  }, 8000);
 
   setInterval(() => {
     if (mainWindow && !mainWindow.isDestroyed() && getShieldRemainingSec() > 0) {
       publishStats();
     }
+  }, 1000);
+
+  setInterval(() => {
+    if (!isLockActive()) return;
+    publishStats();
   }, 1000);
 });
 
@@ -217,13 +389,29 @@ wss.on('connection', ws => {
     try {
       const data = JSON.parse(message);
       if (data.type === 'distraction') {
+        distractionEvents.push(Date.now());
+        latestSignal = {
+          app: 'Browser',
+          title: data.title || data.site || 'Unknown site',
+          site: data.site || ''
+        };
+
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('extension-distraction', data.site);
         }
 
-        if (isFocusModeActive) {
+        if (isEffectiveFocusMode()) {
           applyPenalty('extension', `Distracting site visited: ${data.site}`);
         }
+
+        runInterventionCycle('distraction');
+      } else if (data.type === 'context') {
+        latestSignal = {
+          app: 'Browser',
+          title: data.title || data.site || 'Unknown site',
+          site: data.site || ''
+        };
+        runInterventionCycle('browser-context');
       }
     } catch (error) {
       console.error('Invalid WebSocket payload:', error.message);
@@ -253,6 +441,7 @@ ipcMain.on('get-stats', (event) => {
 
 ipcMain.on('add-distraction', (event) => {
   applyPenalty('ui', 'Manual/legacy distraction event', null, event);
+  runInterventionCycle('manual-distraction');
 });
 
 ipcMain.on('cv-distraction-event', (event, payload) => {
@@ -321,3 +510,32 @@ ipcMain.handle('get-runtime-config', () => {
     source: runtimeConfig.source
   };
 });
+
+ipcMain.on('get-settings', (event) => {
+  event.reply('settings-data', getSettings());
+});
+
+ipcMain.on('update-setting', (event, keyOrTuple, value) => {
+  let key = keyOrTuple;
+  let nextValue = value;
+
+  if (Array.isArray(keyOrTuple)) {
+    [key, nextValue] = keyOrTuple;
+  }
+
+  if (typeof key !== 'string') return;
+
+  const updated = updateSetting(key, nextValue);
+  event.reply('settings-data', updated);
+});
+
+ipcMain.on('get-event-log', (event) => {
+  event.reply('event-log-data', eventLog);
+});
+
+ipcMain.on('clear-event-log', (event) => {
+  eventLog = [];
+  event.reply('event-log-data', eventLog);
+});
+
+initializeSettings();
