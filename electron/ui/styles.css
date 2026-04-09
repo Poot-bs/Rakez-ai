@@ -1,78 +1,337 @@
-body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background-color: #1a1a2e;
-  color: #fff;
-  margin: 0;
-  padding: 0;
+:root {
+  --bg: #f3f5f7;
+  --text: #121721;
+  --muted: #5d6775;
+  --panel: rgba(255, 255, 255, 0.82);
+  --panel-border: rgba(20, 26, 34, 0.1);
+  --shadow: 0 16px 36px rgba(17, 24, 39, 0.12);
+  --radius-lg: 18px;
+  --radius-md: 14px;
+  --accent: #0ea5e9;
+  --success: #089981;
+  --danger: #dc4f5d;
 }
 
-.container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: var(--text);
+  font-family: 'Segoe UI Variable', 'Segoe UI', 'Helvetica Neue', sans-serif;
+  background:
+    radial-gradient(900px 500px at 0% 0%, #ddeeff 0%, transparent 55%),
+    radial-gradient(1000px 500px at 100% -10%, #e8fdf5 0%, transparent 55%),
+    var(--bg);
+}
+
+.app-shell {
+  max-width: 1320px;
+  margin: 0 auto;
   padding: 20px;
 }
 
-header {
-  width: 100%;
+.glass {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(12px);
+}
+
+.topbar {
+  padding: 18px 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 2px solid #16213e;
-  padding-bottom: 10px;
 }
 
-.stats {
+.eyebrow {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+h1 {
+  margin: 6px 0 0;
+  font-size: 1.7rem;
+}
+
+.stats-row {
   display: flex;
-  gap: 20px;
-  font-size: 1.2rem;
-  font-weight: bold;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
-.video-container {
-  position: relative;
-  margin: 20px 0;
-  width: 640px;
-  height: 480px;
-  background: #0f3460;
-  border-radius: 10px;
+.stat-chip {
+  display: grid;
+  gap: 2px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--panel-border);
+  min-width: 120px;
+}
+
+.chip-label {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.chip-value {
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.session-controls {
+  margin-top: 14px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  padding: 12px 18px;
+  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.btn.active {
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+}
+
+.btn-secondary {
+  background: linear-gradient(135deg, #475569 0%, #334155 100%);
+}
+
+.btn-shop {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(14, 165, 233, 0.24);
+}
+
+.status-pill {
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.status-pill.focused {
+  background: rgba(8, 153, 129, 0.14);
+  color: var(--success);
+}
+
+.status-pill.distracted {
+  background: rgba(220, 79, 93, 0.14);
+  color: var(--danger);
+}
+
+.status-pill.paused {
+  background: rgba(93, 103, 117, 0.14);
+  color: var(--muted);
+}
+
+.status-text {
+  font-weight: 500;
+}
+
+.calibration-state {
+  display: grid;
+  gap: 4px;
+  min-width: 190px;
+}
+
+#calibration-status {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.calibration-track {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(100, 116, 139, 0.18);
   overflow: hidden;
 }
 
-video {
-  position: absolute;
-  width: 100%;
+.calibration-progress {
+  width: 0%;
   height: 100%;
-  transform: scaleX(-1);
+  background: linear-gradient(90deg, #0ea5e9 0%, #22c55e 100%);
+  transition: width 0.15s linear;
 }
 
+.active-app {
+  color: var(--muted);
+  margin-left: auto;
+}
+
+.main-grid {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: 1.45fr 1fr;
+  grid-template-areas:
+    'camera score'
+    'camera alert'
+    'camera log';
+  gap: 14px;
+}
+
+.camera-panel {
+  grid-area: camera;
+  padding: 14px;
+}
+
+.focus-score-card {
+  grid-area: score;
+  padding: 14px;
+}
+
+.alerts-card {
+  grid-area: alert;
+  padding: 14px;
+}
+
+.log-card {
+  grid-area: log;
+  padding: 14px;
+}
+
+.panel-title {
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.video-frame {
+  position: relative;
+  width: 100%;
+  max-width: 960px;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: #0d1726;
+}
+
+video,
 canvas {
   position: absolute;
   width: 100%;
   height: 100%;
+  inset: 0;
+  object-fit: cover;
   transform: scaleX(-1);
+}
+
+video {
+  object-fit: contain;
+}
+
+canvas {
   pointer-events: none;
+  object-fit: contain;
 }
 
-.controls {
-  text-align: center;
+.focus-ring {
+  width: 170px;
+  height: 170px;
+  border-radius: 999px;
+  margin: 10px auto 6px;
+  background: conic-gradient(var(--accent) calc(var(--score) * 1%), #e8edf2 0);
+  display: grid;
+  place-items: center;
+  transition: background 0.2s ease;
 }
 
-.btn {
-  background: #e94560;
-  color: white;
-  border: none;
-  padding: 15px 30px;
-  font-size: 1.2rem;
-  border-radius: 5px;
-  cursor: pointer;
-  transition: background 0.3s;
+.focus-ring::after {
+  content: attr(data-label);
+  width: 132px;
+  height: 132px;
+  border-radius: 999px;
+  background: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 1.45rem;
+  font-weight: 700;
 }
 
-.btn.active {
-  background: #4caf50;
+.alert-text {
+  color: var(--muted);
+  min-height: 24px;
 }
 
-.btn:hover {
-  opacity: 0.9;
+.model-source {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.log-list {
+  max-height: 290px;
+  overflow: auto;
+  display: grid;
+  gap: 8px;
+}
+
+.log-item {
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  padding: 9px 10px;
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 0.88rem;
+  animation: reveal 0.22s ease;
+}
+
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 1060px) {
+  .main-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'camera'
+      'score'
+      'alert'
+      'log';
+  }
+
+  .video-frame {
+    min-height: 360px;
+  }
+
+  .active-app {
+    margin-left: 0;
+    width: 100%;
+  }
 }
