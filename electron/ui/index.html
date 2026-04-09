@@ -6,26 +6,71 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="container">
-    <header>
-      <h1>Focus Guardian 🛡️</h1>
-      <div class="stats">
-        <p>🪙 Coins: <span id="coin-count">0</span></p>
-        <p>⚠️ Distractions: <span id="distraction-count">0</span></p>
+  <div class="app-shell">
+    <header class="topbar glass">
+      <div>
+        <p class="eyebrow">Focus Guardian</p>
+        <h1>Attention Dashboard</h1>
+      </div>
+      <div class="stats-row">
+        <div class="stat-chip">
+          <span class="chip-label">Coins</span>
+          <span class="chip-value" id="coin-count">0</span>
+        </div>
+        <div class="stat-chip">
+          <span class="chip-label">Distractions</span>
+          <span class="chip-value" id="distraction-count">0</span>
+        </div>
+        <div class="stat-chip">
+          <span class="chip-label">Focus Time</span>
+          <span class="chip-value" id="focus-time">00:00</span>
+        </div>
+        <div class="stat-chip">
+          <span class="chip-label">Shield Time</span>
+          <span class="chip-value" id="shield-time">00:00</span>
+        </div>
       </div>
     </header>
-    
-    <main>
-      <div class="video-container">
-        <video id="webcam" autoplay playsinline></video>
-        <canvas id="canvas_output"></canvas>
+
+    <section class="session-controls glass">
+      <button id="toggle-focus" class="btn">Start Focus Session</button>
+      <button id="calibrate-focus" class="btn btn-secondary">Calibrate (12s)</button>
+      <button id="buy-shield" class="btn btn-shop">Buy 10m Shield (20 coins)</button>
+      <span id="status-pill" class="status-pill paused">Paused</span>
+      <span id="status-text" class="status-text">Ready to monitor attention.</span>
+      <span id="active-app" class="active-app">Current App: None</span>
+      <div class="calibration-state">
+        <span id="calibration-status">Calibration: Not started</span>
+        <div class="calibration-track">
+          <div id="calibration-progress" class="calibration-progress"></div>
+        </div>
       </div>
-      
-      <div class="controls">
-        <button id="toggle-focus" class="btn">Focus Mode: OFF</button>
-        <p id="status-text">Ready to focus.</p>
-        <p id="active-app">Current App: None</p>
-      </div>
+    </section>
+
+    <main class="main-grid">
+      <section class="camera-panel glass">
+        <div class="panel-title">Live Camera Feed</div>
+        <div class="video-frame">
+          <video id="webcam" autoplay playsinline></video>
+          <canvas id="canvas_output"></canvas>
+        </div>
+      </section>
+
+      <section class="focus-score-card glass">
+        <div class="panel-title">Focus Score</div>
+        <div id="focus-ring" class="focus-ring" style="--score: 0;" data-label="0%"></div>
+      </section>
+
+      <section class="alerts-card glass">
+        <div class="panel-title">Real-time Alerts</div>
+        <div id="latest-alert" class="alert-text">No alerts yet.</div>
+        <div class="model-source" id="model-source">Model: distraction_detection (HDF5 weights converted to ONNX)</div>
+      </section>
+
+      <section class="log-card glass">
+        <div class="panel-title">Recent Distraction Log</div>
+        <div id="log-list" class="log-list"></div>
+      </section>
     </main>
   </div>
 
@@ -34,6 +79,7 @@
   <!-- Load MediaPipe Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+  <script src="../../node_modules/onnxruntime-web/dist/ort.min.js"></script>
   
   <script src="index.js"></script>
   <script src="../../ai/distractionDetector.js"></script>
