@@ -4,7 +4,7 @@ This file describes how coding agents should work in this repository.
 
 ## Project Overview
 
-Focus Guardian is an Electron desktop app plus a Chrome extension.
+Rakez Ai is an Electron desktop app plus a Chrome extension.
 
 Core parts:
 - `electron/main.js`: App window, IPC, app status API, active window checks, WebSocket server.

@@ -308,7 +308,7 @@ api.get('/status', (req, res) => {
   });
 });
 api.listen(8081, () => {
-  console.log('Focus Guardian API listening on port 8081');
+  console.log('Rakez Ai API listening on port 8081');
 });
 
 function createWindow() {

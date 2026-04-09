@@ -47,7 +47,7 @@ function showOverlay(reason) {
   overlay.style.fontFamily = 'sans-serif';
 
   overlay.innerHTML = `
-    <h1 style="color: #e94560; font-size: 3rem;">Site Blocked by Focus Guardian</h1>
+    <h1 style="color: #e94560; font-size: 3rem;">Site Blocked by Rakez Ai</h1>
     <p style="font-size: 1.5rem;">${reason}</p>
   `;
 
