@@ -9,7 +9,8 @@ const validReceiveChannels = [
     'settings-data',
     'settings-updated',
     'event-log-data',
-    'event-logged'
+    'event-logged',
+    'fatigue-alert'
 ];
 
 contextBridge.exposeInMainWorld('focusGuardian', {
@@ -19,6 +20,7 @@ contextBridge.exposeInMainWorld('focusGuardian', {
             'get-stats',
             'request-distraction-log',
             'cv-distraction-event',
+            'cv-metric-sample',
             'add-distraction',
             'get-settings',
             'update-setting',
@@ -43,7 +45,8 @@ contextBridge.exposeInMainWorld('focusGuardian', {
             'buy-focus-shield',
             'save-calibration',
             'get-calibration',
-            'get-runtime-config'
+            'get-runtime-config',
+            'get-focus-analytics'
         ];
 
         if (!allowed.includes(channel)) {

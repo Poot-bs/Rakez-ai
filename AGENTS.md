@@ -11,7 +11,7 @@ Core parts:
 - `electron/ui/index.js`: Focus mode state, alerts, stats rendering.
 - `ai/distractionDetector.js`: Webcam + MediaPipe face tracking logic.
 - `extension/background.js`: Relays distraction events from content script to desktop app.
-- `extension/content.js`: Blocks distracting sites only when focus mode is enabled.
+- `extension/content.js`: Enforces distraction-site policy using focus state and lock state.
 
 ## Setup And Run
 
@@ -40,14 +40,16 @@ npm start
 ## Behavioral Rules
 
 1. Focus mode is the source of truth for enforcing distractions.
-2. Do not block websites when focus mode is off.
-3. Do not trigger distraction penalties when monitoring is off.
-4. Keep desktop app and extension communication backward-compatible.
+2. In regular focus mode, show countdown warning before full-page block.
+3. In lock mode, block immediately (no countdown).
+4. Do not block websites when focus mode is off.
+5. Do not trigger distraction penalties when monitoring is off.
+6. Keep desktop app and extension communication backward-compatible.
 
 ## Known Interfaces
 
 - WebSocket: `ws://localhost:8080` for extension distraction events.
-- Status API: `http://localhost:8081/status` returns `{ "focusMode": boolean }`.
+- Status API: `http://localhost:8081/status` includes `focusMode` and lock state fields used by extension policy.
 - IPC channels:
   - `get-stats`
   - `stats-data`
@@ -67,5 +69,6 @@ npm start
 1. App launches via `npm start`.
 2. Focus mode toggles and updates app status.
 3. Webcam distraction warnings can trigger alerts.
-4. Extension only blocks target sites when focus mode is on.
-5. Stats update after a distraction event.
+4. Extension shows warning countdown in normal focus mode and blocks at timer end.
+5. Extension blocks immediately when lock mode is active.
+6. Stats update after a distraction event.
