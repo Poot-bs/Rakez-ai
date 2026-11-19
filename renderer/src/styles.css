@@ -1,0 +1,471 @@
+/* RAKEZ AI — FLOW STATE COMMAND CENTER
+   Pixel-perfect Cockpit Bento Design matching exact specs */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap');
+
+:root {
+  --bg-root: #0A0C11;
+  --bg-card: #12151C;
+  --bg-tile: #0E1117;
+  --border-card: rgba(255, 255, 255, 0.07);
+  --border-tile: rgba(255, 255, 255, 0.06);
+  --border-chip: rgba(255, 255, 255, 0.1);
+  --text-main: #E8ECF4;
+  --text-muted: #98A2B5;
+  --text-dim: #64748B;
+  
+  --teal: #5EEAD4;
+  --teal-dark: #2F8F83;
+  --teal-glow: rgba(94, 234, 212, 0.12);
+  --teal-border: rgba(94, 234, 212, 0.35);
+  
+  --gold: #FBBF24;
+  --gold-bg: rgba(251, 191, 36, 0.14);
+  --gold-border: rgba(251, 191, 36, 0.35);
+  
+  --purple: #A5B4FC;
+  --purple-border: rgba(165, 180, 252, 0.35);
+  
+  --coral: #FF8A8A;
+  --coral-border: rgba(255, 138, 138, 0.35);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  background: var(--bg-root);
+  color: var(--text-main);
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  overflow: hidden;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Master Root Container */
+.root {
+  font-family: 'Inter', system-ui, sans-serif;
+  color: var(--text-main);
+  background: var(--bg-root);
+  width: 100vw;
+  height: 100vh;
+  box-sizing: border-box;
+  padding: 20px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Cards */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 4px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+  position: relative;
+}
+
+/* Labels */
+.lbl {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Typography Helpers */
+.mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Chips & Badges */
+.chip {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border-chip);
+  color: #C5CCDA;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* Sub-tiles */
+.tile {
+  background: var(--bg-tile);
+  border: 1px solid var(--border-tile);
+  border-radius: 4px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tile b {
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.tile span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Navigation buttons in header */
+.nav {
+  background: none;
+  border: 0;
+  color: var(--text-muted);
+  font: 500 14px 'Inter', sans-serif;
+  padding: 8px 14px;
+  border-radius: 4px;
+  min-height: 44px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+}
+
+.nav:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.nav.active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Distraction Log Table Rows */
+.row {
+  display: grid;
+  grid-template-columns: 52px 64px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+  padding: 9px 0;
+  border-top: 1px solid var(--border-tile);
+}
+
+.src {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 2px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* Action Buttons */
+.btn {
+  font: 600 15px 'Inter', sans-serif;
+  border: 0;
+  border-radius: 4px;
+  min-height: 48px;
+  padding: 0 24px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn:hover {
+  filter: brightness(1.12);
+  transform: translateY(-1px);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+/* Main 12-column Bento Grid */
+.bentoCockpitGrid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 14px;
+}
+
+/* Top Demo Studio Bar */
+.demoBarWrapper {
+  background: #141923;
+  border: 1px solid var(--teal-border);
+  border-radius: 4px;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  animation: slideDown 0.25s ease;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.demoBarTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--teal);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.demoBarButtons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.demoBtnSmall {
+  font: 500 12px 'Inter', sans-serif;
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-main);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.demoBtnSmall:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+/* Sub-views: Analytics, Event Log, Settings */
+.subviewContainer {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.subviewContainer::-webkit-scrollbar {
+  width: 6px;
+}
+
+.subviewContainer::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.subviewContainer::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+}
+
+.subviewContainer::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.subviewHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.subviewTitle {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.subviewSubtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.analyticsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.analyticsCardLarge {
+  grid-column: span 2;
+}
+
+.settingsFormGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.settingsField {
+  background: var(--bg-tile);
+  border: 1px solid var(--border-tile);
+  border-radius: 4px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settingsFieldLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.settingsFieldDesc {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.settingsInput {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  color: #fff;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  padding: 8px 12px;
+  outline: none;
+}
+
+.settingsInput:focus {
+  border-color: var(--teal);
+}
+
+/* Event Log Search & Filter */
+.logFilterRow {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.logSearchInput {
+  flex: 1;
+  background: var(--bg-tile);
+  border: 1px solid var(--border-tile);
+  border-radius: 4px;
+  padding: 8px 14px;
+  color: #fff;
+  font-size: 13px;
+  font-family: 'Inter', sans-serif;
+  outline: none;
+}
+
+.logSearchInput:focus {
+  border-color: var(--teal);
+}
+
+.logSelect {
+  background: var(--bg-tile);
+  border: 1px solid var(--border-tile);
+  border-radius: 4px;
+  padding: 8px 14px;
+  color: var(--text-main);
+  font-size: 13px;
+  font-family: 'Inter', sans-serif;
+  outline: none;
+  cursor: pointer;
+}
+
+.eventLogTable {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.eventLogRow {
+  display: grid;
+  grid-template-columns: 80px 140px 1fr 160px;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border-tile);
+  font-size: 13px;
+  align-items: center;
+}
+
+.eventLogRow:first-child {
+  border-top: 0;
+}
+
+/* Hidden Camera elements kept active in DOM */
+.cameraOffscreen {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* Video PIP preview when toggled */
+.cameraPipPreview {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 140px;
+  height: 100px;
+  border-radius: 4px;
+  border: 1px solid var(--teal-border);
+  background: #000;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+  z-index: 10;
+}
+
+.cameraPipPreview canvas {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Calibration Overlay */
+.calibOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 12, 17, 0.88);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  z-index: 50;
+  border-radius: 4px;
+  backdrop-filter: blur(4px);
+}
+
+.calibProgressBar {
+  width: 240px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.calibProgressFill {
+  height: 100%;
+  background: var(--teal);
+  transition: width 0.2s ease;
+}
