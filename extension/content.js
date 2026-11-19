@@ -1,89 +1,173 @@
-fetch("http://localhost:8081/status")
-  .then((response) => response.json())
-  .then((data) => {
-    if (data.focusMode) {
-      chrome.runtime.sendMessage({ type: "hit_distraction", site: window.location.hostname });
+const LEARNING_KEYWORDS = [
+  'api',
+  'backend',
+  'bug',
+  'code',
+  'debug',
+  'docker',
+  'express',
+  'javascript',
+  'langchain',
+  'langgraph',
+  'llama',
+  'node',
+  'programming',
+  'python',
+  'react',
+  'software',
+  'sql',
+  'tutorial',
+  'typescript',
+  'vscode'
+];
 
-      // ── 5-minute warning banner (top left) ──────────────────────
-      let secondsLeft = 5 ;
+function looksLikeLearningIntent(text) {
+  const lower = (text || '').toLowerCase();
+  let score = 0;
+  for (const kw of LEARNING_KEYWORDS) {
+    if (lower.includes(kw)) score += 1;
+  }
+  return score >= 2;
+}
 
-      const banner = document.createElement("div");
-      banner.style.cssText = `
-        position: fixed;
-        top: 16px;
-        left: 16px;
-        z-index: 999999;
-        background: rgba(0, 0, 0, 0.85);
-        color: white;
-        font-family: sans-serif;
-        padding: 12px 18px;
-        border-radius: 10px;
-        border-left: 4px solid #e94560;
-        font-size: 14px;
-        line-height: 1.6;
-        backdrop-filter: blur(6px);
-        box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-      `;
+const BLOCK_DELAY_SECONDS = 5 * 60;
+let countdownTimer = null;
+let countdownBanner = null;
 
-      const formatTime = (s) => {
-        const m = Math.floor(s / 60);
-        const sec = String(s % 60).padStart(2, "0");
-        return `${m}:${sec}`;
-      };
+function clearCountdown() {
+  if (countdownTimer) {
+    clearInterval(countdownTimer);
+    countdownTimer = null;
+  }
 
-      const updateBanner = () => {
-        banner.innerHTML = `
-          ⚠️ <strong style="color:#e94560;">Focus Guardian</strong><br/>
-          This page will be blocked in 
-          <strong style="color:#ffcc00; font-size:16px;">${formatTime(secondsLeft)}</strong>
-        `;
-      };
+  if (countdownBanner) {
+    countdownBanner.remove();
+    countdownBanner = null;
+  }
+}
 
-      updateBanner();
-      document.body.appendChild(banner);
+function formatTime(totalSeconds) {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = String(totalSeconds % 60).padStart(2, '0');
+  return `${minutes}:${seconds}`;
+}
 
-      // ── Countdown ticker ────────────────────────────────────────
-      const countdown = setInterval(() => {
-        secondsLeft--;
-        updateBanner();
+function showOverlay(reason) {
+  if (document.getElementById('fg-block-overlay')) return;
 
-        // Pulse red in the last 60 seconds
-        if (secondsLeft <= 60) {
-          banner.style.borderLeftColor = "#ff0000";
-          banner.style.animation = "fg-pulse 1s infinite";
+  const overlay = document.createElement('div');
+  overlay.id = 'fg-block-overlay';
+  overlay.style.position = 'fixed';
+  overlay.style.top = '0';
+  overlay.style.left = '0';
+  overlay.style.width = '100vw';
+  overlay.style.height = '100vh';
+  overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.95)';
+  overlay.style.color = 'white';
+  overlay.style.display = 'flex';
+  overlay.style.flexDirection = 'column';
+  overlay.style.justifyContent = 'center';
+  overlay.style.alignItems = 'center';
+  overlay.style.zIndex = '999999';
+  overlay.style.fontFamily = 'sans-serif';
+
+  overlay.innerHTML = `
+    <h1 style="color: #e94560; font-size: 3rem;">Site Blocked by Rakez Ai</h1>
+    <p style="font-size: 1.5rem;">${reason}</p>
+  `;
+
+  document.body.appendChild(overlay);
+}
+
+function startCountdown() {
+  if (countdownTimer || document.getElementById('fg-block-overlay')) return;
+
+  let secondsLeft = BLOCK_DELAY_SECONDS;
+  countdownBanner = document.createElement('div');
+  countdownBanner.id = 'fg-warning-banner';
+  countdownBanner.style.cssText = `
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 999999;
+    background: rgba(0, 0, 0, 0.88);
+    color: white;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 12px 18px;
+    border-radius: 8px;
+    border-left: 4px solid #5EEAD4;
+    font-size: 14px;
+    line-height: 1.6;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  `;
+
+  const updateBanner = () => {
+    countdownBanner.innerHTML = `
+      ⚠️ <strong style="color:#5EEAD4;">Rakez AI Focus Shield</strong><br/>
+      This page will be blocked in
+      <strong style="color:#FBBF24; font-size:16px;">${formatTime(secondsLeft)}</strong>
+    `;
+  };
+
+  updateBanner();
+  document.body.appendChild(countdownBanner);
+
+  countdownTimer = setInterval(async () => {
+    secondsLeft -= 1;
+    updateBanner();
+
+    if (secondsLeft <= 60) {
+      countdownBanner.style.borderLeftColor = '#FF8A8A';
+    }
+
+    if (secondsLeft <= 0) {
+      clearCountdown();
+
+      try {
+        const response = await fetch('http://localhost:8081/status', { cache: 'no-store' });
+        const status = await response.json();
+
+        if (status.focusMode && !learningIntent) {
+          chrome.runtime.sendMessage({ type: 'hit_distraction', site, title });
+          showOverlay('You are in focus mode. Please return to work.');
         }
-
-        if (secondsLeft <= 0) {
-          clearInterval(countdown);
-          banner.remove();
-          showBlockOverlay();
-        }
-      }, 1000);
-
-      // ── Full block overlay (after 5 min) ────────────────────────
-      function showBlockOverlay() {
-        const overlay = document.createElement("div");
-        overlay.style.cssText = `
-          position: fixed;
-          top: 0; left: 0;
-          width: 100vw; height: 100vh;
-          background-color: rgba(0, 0, 0, 0.95);
-          color: white;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          align-items: center;
-          z-index: 999999;
-          font-family: sans-serif;
-        `;
-        overlay.innerHTML = `
-          <h1 style="color:#e94560; font-size:3rem;">Site Blocked by Focus Guardian</h1>
-          <p style="font-size:1.5rem;">You are in focus mode. Please return to work.</p>
-        `;
-        document.body.appendChild(overlay);
+      } catch {
+        // Desktop app may be off, do nothing.
       }
     }
+  }, 1000);
+}
+
+const site = window.location.hostname;
+const title = document.title || '';
+const pageSignal = `${site} ${title}`;
+const learningIntent = looksLikeLearningIntent(pageSignal);
+
+chrome.runtime.sendMessage({
+  type: 'context_signal',
+  site,
+  title
+});
+
+fetch('http://localhost:8081/status', { cache: 'no-store' })
+  .then((response) => response.json())
+  .then((data) => {
+    if (data.lockActive) {
+      clearCountdown();
+      chrome.runtime.sendMessage({ type: 'hit_distraction', site, title });
+      showOverlay('Autonomous focus sprint is active. Return to your task.');
+      return;
+    }
+
+    if (data.focusMode && !learningIntent) {
+      startCountdown();
+      return;
+    }
+
+    clearCountdown();
   })
   .catch(() => {
-    // Desktop app may be off, do nothing
+    clearCountdown();
+    // Desktop app may be off, do nothing.
   });

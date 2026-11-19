@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Focus Guardian Blocks",
+  "name": "Rakez Ai Blocks",
   "version": "1.0",
-  "description": "Blocks distracting websites and warns Focus Guardian app.",
+  "description": "Blocks distracting websites and warns Rakez Ai app.",
   "permissions": ["tabs", "storage"],
   "host_permissions": ["*://*.youtube.com/*", "*://*.facebook.com/*", "*://*.twitter.com/*", "*://*.reddit.com/*", "*://*.tiktok.com/*", "*://*.instagram.com/*"],
   "background": {
