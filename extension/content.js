@@ -90,23 +90,23 @@ function startCountdown() {
     top: 16px;
     left: 16px;
     z-index: 999999;
-    background: rgba(0, 0, 0, 0.85);
+    background: rgba(0, 0, 0, 0.88);
     color: white;
-    font-family: sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     padding: 12px 18px;
-    border-radius: 10px;
-    border-left: 4px solid #e94560;
+    border-radius: 8px;
+    border-left: 4px solid #5EEAD4;
     font-size: 14px;
     line-height: 1.6;
-    backdrop-filter: blur(6px);
-    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
   `;
 
   const updateBanner = () => {
     countdownBanner.innerHTML = `
-      [Warning] <strong style="color:#e94560;">Focus Guardian</strong><br/>
+      ⚠️ <strong style="color:#5EEAD4;">Rakez AI Focus Shield</strong><br/>
       This page will be blocked in
-      <strong style="color:#ffcc00; font-size:16px;">${formatTime(secondsLeft)}</strong>
+      <strong style="color:#FBBF24; font-size:16px;">${formatTime(secondsLeft)}</strong>
     `;
   };
 
@@ -118,7 +118,7 @@ function startCountdown() {
     updateBanner();
 
     if (secondsLeft <= 60) {
-      countdownBanner.style.borderLeftColor = '#ff0000';
+      countdownBanner.style.borderLeftColor = '#FF8A8A';
     }
 
     if (secondsLeft <= 0) {
