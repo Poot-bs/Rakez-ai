@@ -1,14 +1,64 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
+
+try {
+  app.commandLine.appendSwitch('no-sandbox');
+  app.commandLine.appendSwitch('disable-gpu-sandbox');
+} catch (_) {}
+
 const Store = require('electron-store');
 const activeWin = require('active-win');
 const WebSocket = require('ws');
 const express = require('express');
 const cors = require('cors');
+const { pathToFileURL } = require('url');
 const { runAgenticGraph } = require('../ai/multiAgentGraph');
+const { FocusIntelligenceEngine } = require('../services/focus/focusIntelligenceEngine');
 
-const store = new Store();
+function configureRuntimePaths() {
+  try {
+    const appDataDir = app.getPath('appData');
+    const userDataDir = path.join(appDataDir, 'FocusGuardian');
+    const sessionDataDir = path.join(userDataDir, 'session');
+
+    fs.mkdirSync(userDataDir, { recursive: true });
+    // Verify write permissions
+    const probeFile = path.join(userDataDir, '.write-test');
+    fs.writeFileSync(probeFile, 'ok');
+    fs.unlinkSync(probeFile);
+
+    fs.mkdirSync(sessionDataDir, { recursive: true });
+
+    app.setPath('userData', userDataDir);
+    app.setPath('sessionData', sessionDataDir);
+    return userDataDir;
+  } catch (error) {
+    console.warn('Using local workspace data directory for runtime storage:', error.message);
+    const fallbackDir = path.join(app.getAppPath(), '.data');
+    try {
+      fs.mkdirSync(fallbackDir, { recursive: true });
+      const sessionDataDir = path.join(fallbackDir, 'session');
+      fs.mkdirSync(sessionDataDir, { recursive: true });
+      app.setPath('userData', fallbackDir);
+      app.setPath('sessionData', sessionDataDir);
+    } catch (_) {}
+    return fallbackDir;
+  }
+}
+
+const runtimeDir = configureRuntimePaths();
+
+let store;
+try {
+  store = new Store({ cwd: runtimeDir });
+} catch (error) {
+  console.warn('Falling back to local data directory for store:', error.message);
+  const fallbackDir = path.join(app.getAppPath(), '.data');
+  fs.mkdirSync(fallbackDir, { recursive: true });
+  store = new Store({ cwd: fallbackDir });
+}
+const focusIntelligence = new FocusIntelligenceEngine({ store });
 let mainWindow;
 let isFocusModeActive = false;
 let focusRewardInterval = null;
@@ -190,6 +240,13 @@ function applyPenalty(source, reason, score = null, targetEvent = null) {
   const distractions = store.get('distractions');
   distractionEvents.push(Date.now());
 
+  focusIntelligence.recordDistraction({
+    ts: Date.now(),
+    source,
+    site: latestSignal.site,
+    title: latestSignal.title
+  });
+
   store.set('coins', Math.max(0, coins - 5));
   store.set('distractions', distractions + 1);
 
@@ -313,8 +370,12 @@ api.listen(8081, () => {
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 900,
-    height: 700,
+    width: 1440,
+    height: 900,
+    minWidth: 1200,
+    minHeight: 800,
+    title: 'Rakez AI — Flow State Command Center',
+    backgroundColor: '#0A0C11',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -324,7 +385,15 @@ function createWindow() {
     }
   });
 
-  mainWindow.loadFile('electron/ui/index.html');
+  const reactRendererPath = path.join(app.getAppPath(), 'renderer', 'dist', 'index.html');
+  const legacyRendererPath = path.join(app.getAppPath(), 'electron', 'ui', 'index.html');
+
+  if (fs.existsSync(reactRendererPath)) {
+    mainWindow.loadFile(reactRendererPath);
+    return;
+  }
+
+  mainWindow.loadFile(legacyRendererPath);
 }
 
 app.whenReady().then(() => {
@@ -356,6 +425,12 @@ app.whenReady().then(() => {
         if (title !== lastWindowTitle) {
           lastWindowTitle = title;
           switchEvents.push(Date.now());
+          focusIntelligence.recordWindowSwitch({
+            ts: Date.now(),
+            app: appName,
+            title,
+            site: activeApp.url || ''
+          });
         }
 
         notifyRenderer('active-app-update', `${appName} - ${title}`);
@@ -450,7 +525,41 @@ ipcMain.on('cv-distraction-event', (event, payload) => {
 
   const reason = payload?.reason || 'Attention score dropped';
   const score = typeof payload?.score === 'number' ? payload.score : null;
+
+  if (typeof score === 'number') {
+    focusIntelligence.recordAttentionSample(score, payload.ts || Date.now());
+  }
+
   applyPenalty('cv', reason, score);
+});
+
+ipcMain.on('cv-metric-sample', (_event, payload) => {
+  if (!payload || typeof payload !== 'object') return;
+
+  const ts = Number(payload.ts) || Date.now();
+  if (typeof payload.score === 'number') {
+    focusIntelligence.recordAttentionSample(payload.score, ts);
+  }
+
+  const fatigue = focusIntelligence.recordFaceSignal({
+    ts,
+    blinkDetected: Boolean(payload.blinkDetected),
+    yawnDetected: Boolean(payload.yawnDetected)
+  });
+
+  if (fatigue?.fatigueDetected) {
+    notifyRenderer('fatigue-alert', {
+      ts,
+      suggestion: fatigue.suggestion,
+      severity: fatigue.severity,
+      blinkRate: fatigue.blinkRate,
+      yawnCount: fatigue.yawnCount
+    });
+  }
+});
+
+ipcMain.handle('get-focus-analytics', () => {
+  return focusIntelligence.getAnalyticsSnapshot();
 });
 
 ipcMain.on('request-distraction-log', (event) => {
@@ -504,10 +613,15 @@ ipcMain.handle('get-calibration', () => {
 
 ipcMain.handle('get-runtime-config', () => {
   const runtimeConfig = resolveModelPath();
+  const detectorScriptPath = path.join(app.getAppPath(), 'ai', 'distractionDetector.js');
+  const ortScriptPath = path.join(app.getAppPath(), 'node_modules', 'onnxruntime-web', 'dist', 'ort.min.js');
+
   return {
     modelAvailable: runtimeConfig.modelAvailable,
     modelPath: runtimeConfig.modelPath,
-    source: runtimeConfig.source
+    source: runtimeConfig.source,
+    detectorScriptUrl: pathToFileURL(detectorScriptPath).toString(),
+    ortScriptUrl: pathToFileURL(ortScriptPath).toString()
   };
 });
 

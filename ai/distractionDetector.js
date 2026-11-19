@@ -47,6 +47,86 @@ let lastFrameTs = Date.now();
 let distractedState = false;
 
 let cvWorker = null;
+let cameraStarting = false;
+let lastCameraError = '';
+let manualStream = null;
+let manualFrameLoopId = null;
+
+function formatCameraErrorMessage(error) {
+  const name = error?.name || 'UnknownError';
+
+  if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+    return 'Camera not found. Connect a webcam or enable your camera device, then retry.';
+  }
+
+  if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+    return 'Camera permission denied. Allow camera access for this app.';
+  }
+
+  if (name === 'NotReadableError' || name === 'TrackStartError') {
+    return 'Camera is busy in another app. Close other camera apps and retry.';
+  }
+
+  return `Camera error (${name}). Please check camera availability and permissions.`;
+}
+
+function emitCameraError(error) {
+  const message = formatCameraErrorMessage(error);
+  if (message === lastCameraError) return;
+
+  lastCameraError = message;
+  publishCvMetrics(0, message, false);
+  console.warn('Camera pipeline error:', error?.message || error);
+}
+
+async function hasVideoInputDevice() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+    return true;
+  }
+
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  return devices.some((device) => device.kind === 'videoinput');
+}
+
+function startManualFrameLoop() {
+  if (manualFrameLoopId) return;
+
+  const tick = async () => {
+    if (!manualStream) {
+      manualFrameLoopId = null;
+      return;
+    }
+
+    try {
+      await faceMesh.send({ image: videoElement });
+    } catch (error) {
+      emitCameraError(error);
+    }
+
+    manualFrameLoopId = requestAnimationFrame(tick);
+  };
+
+  manualFrameLoopId = requestAnimationFrame(tick);
+}
+
+async function tryStartManualCamera() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    throw new Error('getUserMedia is unavailable in this runtime.');
+  }
+
+  manualStream = await navigator.mediaDevices.getUserMedia({
+    video: {
+      width: CONFIG.cameraWidth,
+      height: CONFIG.cameraHeight,
+      facingMode: 'user'
+    },
+    audio: false
+  });
+
+  videoElement.srcObject = manualStream;
+  await videoElement.play();
+  startManualFrameLoop();
+}
 
 async function initWorker() {
   try {
@@ -143,6 +223,8 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+let lastPoseAngles = { pitch: -4, yaw: 6, ear: 0.31 };
+
 function estimatePoseScore(landmarks) {
   const nose = landmarks[1];
   const leftEye = landmarks[33];
@@ -158,6 +240,9 @@ function estimatePoseScore(landmarks) {
 
   const yawPenalty = Math.min(1, Math.abs(0.5 - noseRatioX) * 2.2);
   const pitchPenalty = Math.min(1, Math.abs(0.56 - noseRatioY) * 2.0);
+
+  lastPoseAngles.yaw = Math.round((noseRatioX - 0.5) * 36);
+  lastPoseAngles.pitch = Math.round((0.56 - noseRatioY) * 30);
 
   return clamp01(1 - ((yawPenalty + pitchPenalty) / 2));
 }
@@ -293,13 +378,17 @@ function postToModel(landmarks) {
   }
 }
 
-function publishCvMetrics(score, reason, shouldPenalty) {
+function publishCvMetrics(score, reason, shouldPenalty, extra = {}) {
   if (typeof window.onCvMetrics === 'function') {
     window.onCvMetrics({
       score,
       reason,
       isDistracted: distractedState,
       shouldPenalty,
+      ear: extra.ear ?? lastPoseAngles.ear,
+      headPitch: extra.pitch ?? lastPoseAngles.pitch,
+      headYaw: extra.yaw ?? lastPoseAngles.yaw,
+      blinkRate: extra.blinkRate ?? 16,
       calibration: {
         active: calibration.active,
         calibrated: calibration.calibrated,
@@ -423,31 +512,66 @@ function onResults(results) {
     lastPenaltyTs = now;
   }
 
-  publishCvMetrics(attentionEMA, reason, shouldPenalty);
+  if (avgEAR > 0) {
+    lastPoseAngles.ear = Number(avgEAR.toFixed(2));
+  }
+
+  publishCvMetrics(attentionEMA, reason, shouldPenalty, {
+    ear: lastPoseAngles.ear,
+    pitch: lastPoseAngles.pitch,
+    yaw: lastPoseAngles.yaw,
+    blinkRate: 16
+  });
 
   canvasCtx.restore();
 }
 
-function startCamera() {
-  if (!camera) {
-    camera = new Camera(videoElement, {
-      onFrame: async () => {
-        await faceMesh.send({image: videoElement});
-      },
-      width: CONFIG.cameraWidth,
-      height: CONFIG.cameraHeight
-    });
+async function startCamera() {
+  if (cameraStarting) return;
+  cameraStarting = true;
 
-    canvasElement.width = CONFIG.cameraWidth;
-    canvasElement.height = CONFIG.cameraHeight;
+  if (!videoElement || !canvasElement) {
+    emitCameraError({ name: 'InitError', message: 'Camera elements are not mounted in the active view.' });
+    cameraStarting = false;
+    return;
   }
-  camera.start();
+
+  canvasElement.width = CONFIG.cameraWidth;
+  canvasElement.height = CONFIG.cameraHeight;
+
+  try {
+    const hasDevice = await hasVideoInputDevice();
+    if (!hasDevice) {
+      // Some environments report empty device lists before permission grant.
+      // Continue and attempt acquisition anyway.
+      console.warn('No video device reported by enumerateDevices; attempting camera acquisition anyway.');
+    }
+
+    await tryStartManualCamera();
+    lastCameraError = '';
+  } catch (error) {
+    emitCameraError(error);
+  } finally {
+    cameraStarting = false;
+  }
 }
 
 function stopCamera() {
-  if (camera) {
-    camera.stop();
+  if (manualFrameLoopId) {
+    cancelAnimationFrame(manualFrameLoopId);
+    manualFrameLoopId = null;
   }
+
+  if (manualStream) {
+    manualStream.getTracks().forEach((track) => track.stop());
+    manualStream = null;
+  }
+
+  if (videoElement) {
+    videoElement.srcObject = null;
+  }
+
+  cameraStarting = false;
 
   frameCounter = 0;
   attentionEMA = 1;

@@ -20,6 +20,191 @@ const agentMessageEl = document.getElementById('agent-message');
 const contextModeEl = document.getElementById('context-mode');
 const lockStatusEl = document.getElementById('lock-status');
 const microTaskListEl = document.getElementById('micro-task-list');
+const heatmapGridEl = document.getElementById('heatmap-grid');
+const topPatternEl = document.getElementById('insight-top-pattern');
+const bestHourEl = document.getElementById('insight-best-hour');
+const streakEl = document.getElementById('insight-streak');
+const fatigueMeterFillEl = document.getElementById('fatigue-meter-fill');
+const analyticsRefreshBtn = document.getElementById('analytics-refresh');
+const petStageEl = document.getElementById('pet-stage');
+const petFaceEl = document.getElementById('pet-face');
+const petMoodEl = document.getElementById('pet-mood');
+const petTipEl = document.getElementById('pet-tip');
+let lastMetricSampleTs = 0;
+let latestFocusScore = 0;
+let latestDistracted = false;
+let fatigueIndex = 0;
+let animatedCoins = 0;
+let animatedDistractions = 0;
+
+function animateNumber(from, to, onStep, duration = 380) {
+  const start = performance.now();
+  const safeFrom = Number(from) || 0;
+  const safeTo = Number(to) || 0;
+
+  function tick(now) {
+    const progress = Math.min(1, (now - start) / duration);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const value = Math.round(safeFrom + (safeTo - safeFrom) * eased);
+    onStep(value);
+    if (progress < 1) {
+      requestAnimationFrame(tick);
+    }
+  }
+
+  requestAnimationFrame(tick);
+}
+
+function setVisualTheme(mode) {
+  document.body.classList.remove('focus-theme', 'distracted-theme');
+  if (mode === 'focused') {
+    document.body.classList.add('focus-theme');
+  } else if (mode === 'distracted') {
+    document.body.classList.add('distracted-theme');
+  }
+}
+
+function animateMotionItems(scopeEl = document) {
+  const items = Array.from(scopeEl.querySelectorAll('.motion-item'));
+  items.sort((a, b) => Number(a.dataset.motionOrder || 0) - Number(b.dataset.motionOrder || 0));
+
+  items.forEach((el, idx) => {
+    el.classList.remove('motion-in');
+    setTimeout(() => {
+      el.classList.add('motion-in');
+    }, idx * 55);
+  });
+}
+
+function toHeatmapLevel(score) {
+  if (score >= 0.85) return 4;
+  if (score >= 0.7) return 3;
+  if (score >= 0.5) return 2;
+  if (score > 0.2) return 1;
+  return 0;
+}
+
+function formatHourLabel(hour) {
+  const normalized = ((hour % 24) + 24) % 24;
+  const period = normalized >= 12 ? 'PM' : 'AM';
+  const display = normalized % 12 || 12;
+  return `${display}${period}`;
+}
+
+function renderHeatmap(heatmap) {
+  if (!heatmapGridEl) return;
+  heatmapGridEl.innerHTML = '';
+
+  const hours = Array.isArray(heatmap) ? heatmap : [];
+  const source = hours.length
+    ? hours
+    : Array.from({ length: 24 }, (_, hour) => ({ hour, avgFocusScore: 0, samples: 0 }));
+
+  for (const slot of source) {
+    const level = toHeatmapLevel(Number(slot.avgFocusScore) || 0);
+    const cell = document.createElement('div');
+    cell.className = `heatmap-cell l${level}`;
+    cell.innerHTML = `
+      <div class="heatmap-hour">${formatHourLabel(slot.hour)}</div>
+      <div class="heatmap-score">${Math.round((slot.avgFocusScore || 0) * 100)}%</div>
+    `;
+    cell.title = `Hour ${slot.hour}:00 | Score ${(slot.avgFocusScore || 0).toFixed(2)} | Samples ${slot.samples || 0}`;
+    heatmapGridEl.appendChild(cell);
+    requestAnimationFrame(() => cell.classList.add('flash'));
+  }
+}
+
+function computeHighFocusStreak(heatmap) {
+  let best = 0;
+  let current = 0;
+
+  for (const slot of heatmap) {
+    const isHigh = (slot.samples || 0) > 0 && (slot.avgFocusScore || 0) >= 0.7;
+    if (isHigh) {
+      current += 1;
+      best = Math.max(best, current);
+    } else {
+      current = 0;
+    }
+  }
+
+  return best;
+}
+
+function renderInsights(analytics) {
+  const topCorrelations = Array.isArray(analytics?.topCorrelations) ? analytics.topCorrelations : [];
+  const heatmap = Array.isArray(analytics?.heatmap) ? analytics.heatmap : [];
+
+  if (topPatternEl) {
+    topPatternEl.innerText = topCorrelations.length
+      ? `${topCorrelations[0].pattern} (${Math.round(topCorrelations[0].confidence * 100)}%)`
+      : 'Need more distraction events';
+  }
+
+  if (bestHourEl) {
+    const best = heatmap
+      .filter((slot) => (slot.samples || 0) > 0)
+      .sort((a, b) => (b.avgFocusScore || 0) - (a.avgFocusScore || 0))[0];
+    bestHourEl.innerText = best
+      ? `${formatHourLabel(best.hour)} (${Math.round((best.avgFocusScore || 0) * 100)}%)`
+      : 'No scored hour yet';
+  }
+
+  if (streakEl) {
+    const streak = computeHighFocusStreak(heatmap);
+    streakEl.innerText = `${streak} high-focus ${streak === 1 ? 'hour' : 'hours'}`;
+  }
+
+  renderHeatmap(heatmap);
+}
+
+function updateFatigueMeter() {
+  if (!fatigueMeterFillEl) return;
+  fatigueMeterFillEl.style.width = `${Math.max(0, Math.min(100, Math.round(fatigueIndex)))}%`;
+}
+
+function updatePetState() {
+  if (!petStageEl || !petFaceEl || !petMoodEl || !petTipEl) return;
+
+  let state = 'idle';
+  let face = '(o_o)';
+  let mood = 'Mood: Waiting';
+  let tip = 'Start a focus session to energize your pet.';
+
+  if (isFocusMode) {
+    if (fatigueIndex >= 70) {
+      state = 'sleepy';
+      face = '(-_-)';
+      mood = 'Mood: Sleepy';
+      tip = 'You look fatigued. Take a 20-second visual break now.';
+    } else if (latestDistracted || latestFocusScore < 0.45) {
+      state = 'distracted';
+      face = '(x_x)';
+      mood = 'Mood: Worried';
+      tip = 'Your pet sees drift. Reduce context switching for 5 minutes.';
+    } else if (latestFocusScore >= 0.75) {
+      state = 'happy';
+      face = '(^_^)';
+      mood = 'Mood: Thriving';
+      tip = 'Great flow. Keep this rhythm and bank more coins.';
+    } else {
+      state = 'focused';
+      face = '(._.)';
+      mood = 'Mood: Focused';
+      tip = 'Steady progress. Push focus score above 75%.';
+    }
+  }
+
+  petStageEl.setAttribute('data-state', state);
+  petFaceEl.innerText = face;
+  petMoodEl.innerText = mood;
+  petTipEl.innerText = tip;
+}
+
+async function refreshFocusAnalytics() {
+  const analytics = await window.focusGuardian.invoke('get-focus-analytics');
+  renderInsights(analytics || {});
+}
 
 function updateFocusButton(active) {
   toggleBtn.innerText = active ? 'Stop Focus Session' : 'Start Focus Session';
@@ -60,6 +245,7 @@ function setStatus(mode, text) {
   statusPill.className = `status-pill ${mode}`;
   statusPill.innerText = mode === 'focused' ? 'Focused' : mode === 'distracted' ? 'Distracted' : 'Paused';
   statusText.innerText = text;
+  setVisualTheme(mode);
 }
 
 function updateFocusScore(score) {
@@ -94,8 +280,16 @@ function renderLog(logEntries) {
 window.focusGuardian.send('get-stats');
 window.focusGuardian.send('request-distraction-log');
 window.focusGuardian.on('stats-data', (data) => {
-  coinEl.innerText = data.coins;
-  distractionEl.innerText = data.distractions;
+  animateNumber(animatedCoins, data.coins, (value) => {
+    animatedCoins = value;
+    coinEl.innerText = value;
+  });
+
+  animateNumber(animatedDistractions, data.distractions, (value) => {
+    animatedDistractions = value;
+    distractionEl.innerText = value;
+  });
+
   focusTimeEl.innerText = formatDuration(data.focusSeconds);
   shieldTimeEl.innerText = formatDuration(data.shieldRemainingSec);
   isFocusMode = Boolean(data.focusMode);
@@ -109,6 +303,8 @@ window.focusGuardian.on('stats-data', (data) => {
     buyShieldBtn.innerText = `Buy ${data.shieldDurationMinutes}m Shield (${data.shieldCost} coins)`;
     buyShieldBtn.disabled = (data.coins < data.shieldCost);
   }
+
+  updatePetState();
 });
 
 window.focusGuardian.on('distraction-log-update', (logEntries) => {
@@ -232,6 +428,16 @@ window.focusGuardian.on('extension-distraction', (site) => {
   }
 });
 
+window.focusGuardian.on('fatigue-alert', (payload) => {
+  if (!payload) return;
+  const suggestion = payload.suggestion || 'Fatigue detected. Consider a short break.';
+  latestAlertEl.innerText = suggestion;
+  setStatus('distracted', 'Fatigue signal detected');
+  fatigueIndex = Math.min(100, (Number(payload.blinkRate) || 0) * 2 + (Number(payload.yawnCount) || 0) * 25);
+  updateFatigueMeter();
+  updatePetState();
+});
+
 function triggerAlert(reason) {
   if (!isFocusMode) return;
   
@@ -249,6 +455,8 @@ function triggerAlert(reason) {
 window.onCvMetrics = (payload) => {
   if (!isFocusMode) return;
 
+  latestFocusScore = Number(payload.score) || 0;
+  latestDistracted = Boolean(payload.isDistracted);
   updateFocusScore(payload.score);
 
   if (payload.calibration) {
@@ -279,6 +487,10 @@ window.onCvMetrics = (payload) => {
     setStatus('focused', 'Monitoring attention...');
   }
 
+  fatigueIndex = Math.max(0, fatigueIndex - 0.25);
+  updateFatigueMeter();
+  updatePetState();
+
   if (payload.shouldPenalty) {
     latestAlertEl.innerText = payload.reason || 'Low attention detected';
     appendLogEntry({
@@ -294,6 +506,17 @@ window.onCvMetrics = (payload) => {
     });
 
     triggerAlert(payload.reason || 'Low attention detected');
+  }
+
+  const now = Date.now();
+  if (now - lastMetricSampleTs >= 2000) {
+    lastMetricSampleTs = now;
+    window.focusGuardian.send('cv-metric-sample', {
+      ts: now,
+      score: payload.score,
+      blinkDetected: Boolean(payload.blinkDetected),
+      yawnDetected: Boolean(payload.yawnDetected)
+    });
   }
 };
 
@@ -353,6 +576,7 @@ document.querySelectorAll('.tab-btn').forEach((btn) => {
     const tabEl = document.getElementById(tabName);
     if (tabEl) {
       tabEl.classList.add('active');
+      animateMotionItems(tabEl);
     }
 
     btn.classList.add('active');
@@ -390,7 +614,19 @@ if (clearLogsBtn) {
   });
 }
 
+if (analyticsRefreshBtn) {
+  analyticsRefreshBtn.addEventListener('click', refreshFocusAnalytics);
+}
+
+setInterval(() => {
+  refreshFocusAnalytics();
+}, 15000);
+
 loadSettings();
+refreshFocusAnalytics();
+updateFatigueMeter();
+updatePetState();
+animateMotionItems(document);
 
 // Make accessible to distractionDetector.js
 window.triggerAlert = triggerAlert;
